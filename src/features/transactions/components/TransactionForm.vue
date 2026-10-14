@@ -23,6 +23,14 @@ const category = ref('')
 const date = ref('')
 const note = ref('')
 
+function resetForm() {
+  type.value = 'expense'
+  amount.value = ''
+  category.value = ''
+  date.value = ''
+  note.value = ''
+}
+
 watch(
   () => props.transaction,
   (transaction) => {
@@ -33,11 +41,7 @@ watch(
       date.value = transaction.date
       note.value = transaction.note ?? ''
     } else {
-      type.value = 'expense'
-      amount.value = ''
-      category.value = ''
-      date.value = ''
-      note.value = ''
+      resetForm()
     }
   },
   { immediate: true },
@@ -80,6 +84,8 @@ function handleSubmit() {
     date: trimmedDate,
     note: trimmedNote === '' ? null : trimmedNote,
   })
+
+  resetForm()
 }
 </script>
 

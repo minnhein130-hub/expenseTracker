@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+
 import type { Transaction } from '@/types/transaction'
 
 defineProps<{
@@ -7,7 +9,25 @@ defineProps<{
 
 const emit = defineEmits<{
   edit: [transaction: Transaction]
+  delete: [id: number]
 }>()
+
+const transactionToDelete = ref<Transaction | null>(null)
+
+function openDeleteModal(transaction: Transaction) {
+  transactionToDelete.value = transaction
+}
+
+function cancelDelete() {
+  transactionToDelete.value = null
+}
+
+function confirmDelete() {
+  if (transactionToDelete.value) {
+    emit('delete', transactionToDelete.value.id)
+    transactionToDelete.value = null
+  }
+}
 </script>
 
 <template>
@@ -55,7 +75,7 @@ const emit = defineEmits<{
           <span>Note: {{ transaction.note ?? '—' }}</span>
         </div>
 
-        <div class="mt-3 flex justify-end border-t border-slate-100 pt-3">
+        <div class="mt-3 flex justify-end gap-2 border-t border-slate-100 pt-3">
           <button
             type="button"
             class="rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -63,8 +83,54 @@ const emit = defineEmits<{
           >
             Edit
           </button>
+          <button
+            type="button"
+            class="rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+            @click="openDeleteModal(transaction)"
+          >
+            Delete
+          </button>
         </div>
       </li>
     </ul>
+
+    <div
+      v-if="transactionToDelete"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-modal-title"
+      @click.self="cancelDelete"
+    >
+      <div
+        class="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl"
+        role="alertdialog"
+        aria-describedby="delete-modal-message"
+      >
+        <h3 id="delete-modal-title" class="text-lg font-semibold text-slate-900">
+          Delete Transaction?
+        </h3>
+        <p id="delete-modal-message" class="mt-2 text-sm text-slate-600">
+          Are you sure you want to delete this transaction?
+        </p>
+
+        <div class="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            @click="cancelDelete"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2"
+            @click="confirmDelete"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
