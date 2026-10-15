@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { watch } from 'vue'
+import { useField, useForm } from 'vee-validate'
+import { toTypedSchema } from '@vee-validate/zod'
 
-import type { Transaction, TransactionType } from '@/types/transaction'
+import { transactionSchema } from '@/features/transactions/schemas/transactionSchema'
+import type { Transaction, TransactionType } from '@/features/transactions/types/transaction.types'
 
 const props = withDefaults(
   defineProps<{
@@ -15,34 +18,47 @@ const props = withDefaults(
 const emit = defineEmits<{
   submit: [transaction: Transaction]
   update: [transaction: Transaction]
+  cancel: []
 }>()
 
-const type = ref<TransactionType>('expense')
-const amount = ref<number | ''>('')
-const category = ref('')
-const date = ref('')
-const note = ref('')
+const { handleSubmit, resetForm, setValues } = useForm({
+  validationSchema: toTypedSchema(transactionSchema),
+})
 
-function resetForm() {
-  type.value = 'expense'
-  amount.value = ''
-  category.value = ''
-  date.value = ''
-  note.value = ''
-}
+const { value: typeValue, errorMessage: typeError } = useField<TransactionType>('type', undefined, {
+  initialValue: 'expense',
+})
+const { value: amountValue, errorMessage: amountError } = useField<number | ''>(
+  'amount',
+  undefined,
+  { initialValue: '' },
+)
+const { value: categoryValue, errorMessage: categoryError } = useField<string>(
+  'category',
+  undefined,
+  { initialValue: '' },
+)
+const { value: dateValue, errorMessage: dateError } = useField<string>('date', undefined, {
+  initialValue: '',
+})
+const { value: noteValue, errorMessage: noteError } = useField<string>('note', undefined, {
+  initialValue: '',
+})
 
 watch(
   () => props.transaction,
   (transaction) => {
     if (transaction) {
-      type.value = transaction.type
-      amount.value = transaction.amount
-      category.value = transaction.category
-      date.value = transaction.date
-      note.value = transaction.note ?? ''
-    } else {
-      resetForm()
+      setValues({
+        type: transaction.type,
+        amount: transaction.amount,
+        category: transaction.category,
+        date: transaction.date,
+        note: transaction.note ?? '',
+      })
+      return
     }
+    resetForm()
   },
   { immediate: true },
 )
@@ -50,43 +66,15 @@ watch(
 const fieldClass =
   'mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500'
 
-function handleSubmit() {
-  const amountNumber = Number(amount.value)
-  const trimmedCategory = category.value.trim()
-  const trimmedDate = date.value.trim()
-
-  if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
-    return
-  }
-  if (trimmedCategory === '' || trimmedDate === '') {
-    return
-  }
-
-  const trimmedNote = note.value.trim()
-
+const onSubmit = handleSubmit((values) => {
   if (props.transaction) {
-    emit('update', {
-      ...props.transaction,
-      type: type.value,
-      amount: amountNumber,
-      category: trimmedCategory,
-      date: trimmedDate,
-      note: trimmedNote === '' ? null : trimmedNote,
-    })
+    emit('update', { ...props.transaction, ...values })
     return
   }
 
-  emit('submit', {
-    id: Date.now(),
-    type: type.value,
-    amount: amountNumber,
-    category: trimmedCategory,
-    date: trimmedDate,
-    note: trimmedNote === '' ? null : trimmedNote,
-  })
-
+  emit('submit', { id: Date.now(), ...values })
   resetForm()
-}
+})
 </script>
 
 <template>
@@ -97,27 +85,39 @@ function handleSubmit() {
 
     <form
       class="mt-4 space-y-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
-      @submit.prevent="handleSubmit"
+      novalidate
+      @submit.prevent="onSubmit"
     >
       <fieldset>
         <legend class="text-sm font-medium text-slate-700">Type</legend>
         <div class="mt-2 flex gap-4">
           <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-            <input v-model="type" type="radio" value="income" class="h-4 w-4 accent-indigo-600" />
+            <input
+              v-model="typeValue"
+              type="radio"
+              value="income"
+              class="h-4 w-4 accent-indigo-600"
+            />
             Income
           </label>
           <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-            <input v-model="type" type="radio" value="expense" class="h-4 w-4 accent-indigo-600" />
+            <input
+              v-model="typeValue"
+              type="radio"
+              value="expense"
+              class="h-4 w-4 accent-indigo-600"
+            />
             Expense
           </label>
         </div>
+        <p v-if="typeError" class="mt-2 text-sm text-rose-600">{{ typeError }}</p>
       </fieldset>
 
       <div>
         <label for="amount" class="block text-sm font-medium text-slate-700">Amount</label>
         <input
           id="amount"
-          v-model.number="amount"
+          v-model.number="amountValue"
           type="number"
           min="0"
           step="0.01"
@@ -125,42 +125,56 @@ function handleSubmit() {
           required
           :class="fieldClass"
         />
+        <p v-if="amountError" class="mt-1 text-sm text-rose-600">{{ amountError }}</p>
       </div>
 
       <div>
         <label for="category" class="block text-sm font-medium text-slate-700">Category</label>
         <input
           id="category"
-          v-model="category"
+          v-model="categoryValue"
           type="text"
           placeholder="e.g. Groceries"
           required
           :class="fieldClass"
         />
+        <p v-if="categoryError" class="mt-1 text-sm text-rose-600">{{ categoryError }}</p>
       </div>
 
       <div>
         <label for="date" class="block text-sm font-medium text-slate-700">Date</label>
-        <input id="date" v-model="date" type="date" required :class="fieldClass" />
+        <input id="date" v-model="dateValue" type="date" required :class="fieldClass" />
+        <p v-if="dateError" class="mt-1 text-sm text-rose-600">{{ dateError }}</p>
       </div>
 
       <div>
         <label for="note" class="block text-sm font-medium text-slate-700">Note</label>
         <textarea
           id="note"
-          v-model="note"
+          v-model="noteValue"
           rows="3"
           placeholder="Optional"
           :class="fieldClass"
         ></textarea>
+        <p v-if="noteError" class="mt-1 text-sm text-rose-600">{{ noteError }}</p>
       </div>
 
-      <button
-        type="submit"
-        class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-      >
-        {{ transaction ? 'Save Changes' : 'Add Transaction' }}
-      </button>
+      <div class="flex gap-3">
+        <button
+          type="submit"
+          class="flex-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+        >
+          {{ transaction ? 'Save Changes' : 'Add Transaction' }}
+        </button>
+        <button
+          v-if="transaction"
+          type="button"
+          class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          @click="emit('cancel')"
+        >
+          Cancel
+        </button>
+      </div>
     </form>
   </section>
 </template>

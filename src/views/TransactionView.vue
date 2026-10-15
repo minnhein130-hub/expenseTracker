@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 
 import TransactionForm from '@/features/transactions/components/TransactionForm.vue'
 import TransactionList from '@/features/transactions/components/TransactionList.vue'
-import type { Transaction } from '@/types/transaction'
+import type { Transaction } from '@/features/transactions/types/transaction.types'
 
 const transactions = ref<Transaction[]>([])
 const editingTransaction = ref<Transaction | null>(null)
@@ -37,6 +37,10 @@ function handleSubmit(transaction: Transaction) {
 
 function handleEdit(transaction: Transaction) {
   editingTransaction.value = transaction
+}
+
+function handleCancel() {
+  editingTransaction.value = null
 }
 
 function handleUpdate(updatedTransaction: Transaction) {
@@ -108,6 +112,7 @@ function handlePageSizeChange(size: number) {
         :transaction="editingTransaction"
         @submit="handleSubmit"
         @update="handleUpdate"
+        @cancel="handleCancel"
       />
     </div>
 

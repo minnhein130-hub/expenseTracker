@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
-import type { Transaction } from '@/types/transaction'
+import type { Transaction } from '@/features/transactions/types/transaction.types'
 
 const props = defineProps<{
   transactions: Transaction[]
