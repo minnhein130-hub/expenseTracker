@@ -1,35 +1,76 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
-import TransactionForm from '@/features/transactions/components/TransactionForm.vue'
-import TransactionList from '@/features/transactions/components/TransactionList.vue'
-import type { Transaction } from '@/features/transactions/types/transaction.types'
+import { Plus } from 'lucide-vue-next'
 
-const transactions = ref<Transaction[]>([])
+import AddTransactionModal from '@/features/transactions/components/AddTransactionModal.vue'
+import TransactionFilters from '@/features/transactions/components/TransactionFilters.vue'
+import TransactionList from '@/features/transactions/components/TransactionList.vue'
+import { useTransactions } from '@/features/transactions/composables/useTransactions'
+import { filterTransactions } from '@/features/transactions/utils/filterTransactions'
+import type { Transaction, TypeFilter } from '@/features/transactions/types/transaction.types'
+
+const { transactions } = useTransactions()
 const editingTransaction = ref<Transaction | null>(null)
+const isAddModalOpen = ref(false)
 
 const currentPage = ref(1)
 const pageSize = ref(5)
 const selectedIds = ref<number[]>([])
 
+const searchQuery = ref('')
+const typeFilter = ref<TypeFilter>('all')
+const dateFrom = ref('')
+const dateTo = ref('')
+
+const filters = computed(() => ({
+  query: searchQuery.value,
+  type: typeFilter.value,
+  dateFrom: dateFrom.value,
+  dateTo: dateTo.value,
+}))
+
+const filteredTransactions = computed(() => filterTransactions(transactions.value, filters.value))
+
+const isFilterEmpty = computed(
+  () => transactions.value.length > 0 && filteredTransactions.value.length === 0,
+)
+
 const totalPages = computed(() =>
-  Math.max(1, Math.ceil(transactions.value.length / pageSize.value)),
+  Math.max(1, Math.ceil(filteredTransactions.value.length / pageSize.value)),
 )
 
 const paginatedTransactions = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
-  return transactions.value.slice(start, start + pageSize.value)
+  return filteredTransactions.value.slice(start, start + pageSize.value)
 })
 
 watch(
-  () => transactions.value.length,
+  () => filteredTransactions.value.length,
   () => {
-    const maxPage = Math.max(1, Math.ceil(transactions.value.length / pageSize.value))
+    const maxPage = Math.max(1, Math.ceil(filteredTransactions.value.length / pageSize.value))
     if (currentPage.value > maxPage) {
       currentPage.value = maxPage
     }
   },
 )
+
+watch([searchQuery, typeFilter, dateFrom, dateTo], () => {
+  currentPage.value = 1
+  selectedIds.value = []
+})
+
+watch(filteredTransactions, (list) => {
+  const visibleIds = new Set(list.map((item) => item.id))
+  selectedIds.value = selectedIds.value.filter((id) => visibleIds.has(id))
+})
+
+function handleClearFilters() {
+  searchQuery.value = ''
+  typeFilter.value = 'all'
+  dateFrom.value = ''
+  dateTo.value = ''
+}
 
 function handleSubmit(transaction: Transaction) {
   transactions.value.push(transaction)
@@ -37,9 +78,11 @@ function handleSubmit(transaction: Transaction) {
 
 function handleEdit(transaction: Transaction) {
   editingTransaction.value = transaction
+  isAddModalOpen.value = true
 }
 
-function handleCancel() {
+function closeModal() {
+  isAddModalOpen.value = false
   editingTransaction.value = null
 }
 
@@ -83,9 +126,10 @@ function handleToggleSelect(id: number) {
 
 function handleToggleSelectAll() {
   const allSelected =
-    transactions.value.length > 0 && selectedIds.value.length === transactions.value.length
+    filteredTransactions.value.length > 0 &&
+    selectedIds.value.length === filteredTransactions.value.length
 
-  selectedIds.value = allSelected ? [] : transactions.value.map((item) => item.id)
+  selectedIds.value = allSelected ? [] : filteredTransactions.value.map((item) => item.id)
 }
 
 function handleClearSelection() {
@@ -103,36 +147,64 @@ function handlePageSizeChange(size: number) {
 </script>
 
 <template>
-  <section class="mx-auto w-full max-w-5xl px-4 py-10">
-    <h1 class="text-2xl font-semibold text-slate-900">Expense Tracker</h1>
-    <p class="mt-2 text-slate-600"></p>
+  <div>
+    <header class="border-b border-slate-200 bg-white">
+      <div
+        class="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-4 py-5 lg:px-8"
+      >
+        <div>
+          <h1 class="text-xl font-semibold text-slate-900">Transactions</h1>
+          <p class="mt-0.5 text-sm text-slate-500">
+            {{ filteredTransactions.length }} of {{ transactions.length }} entries
+          </p>
+        </div>
+        <button
+          type="button"
+          class="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          @click="isAddModalOpen = true"
+        >
+          <Plus class="h-4 w-4" :stroke-width="2" />
+          Add Transaction
+        </button>
+      </div>
+    </header>
 
-    <div class="mt-6">
-      <TransactionForm
-        :transaction="editingTransaction"
-        @submit="handleSubmit"
-        @update="handleUpdate"
-        @cancel="handleCancel"
+    <section class="mx-auto w-full max-w-5xl px-4 py-8 lg:px-8">
+      <TransactionFilters
+        v-model:query="searchQuery"
+        v-model:type="typeFilter"
+        v-model:dateFrom="dateFrom"
+        v-model:dateTo="dateTo"
+        @clear="handleClearFilters"
       />
-    </div>
 
-    <div class="mt-6">
-      <TransactionList
-        :transactions="paginatedTransactions"
-        :total-count="transactions.length"
-        :selected-ids="selectedIds"
-        :current-page="currentPage"
-        :page-size="pageSize"
-        :total-pages="totalPages"
-        @edit="handleEdit"
-        @delete="handleDelete"
-        @bulk-delete="handleBulkDelete"
-        @select-toggle="handleToggleSelect"
-        @select-all-toggle="handleToggleSelectAll"
-        @clear-selection="handleClearSelection"
-        @page-change="handlePageChange"
-        @page-size-change="handlePageSizeChange"
-      />
-    </div>
-  </section>
+      <div class="mt-6">
+        <TransactionList
+          :transactions="paginatedTransactions"
+          :total-count="filteredTransactions.length"
+          :is-filter-empty="isFilterEmpty"
+          :selected-ids="selectedIds"
+          :current-page="currentPage"
+          :page-size="pageSize"
+          :total-pages="totalPages"
+          @edit="handleEdit"
+          @delete="handleDelete"
+          @bulk-delete="handleBulkDelete"
+          @select-toggle="handleToggleSelect"
+          @select-all-toggle="handleToggleSelectAll"
+          @clear-selection="handleClearSelection"
+          @page-change="handlePageChange"
+          @page-size-change="handlePageSizeChange"
+        />
+      </div>
+    </section>
+
+    <AddTransactionModal
+      :open="isAddModalOpen"
+      :transaction="editingTransaction"
+      @close="closeModal"
+      @submit="handleSubmit"
+      @update="handleUpdate"
+    />
+  </div>
 </template>

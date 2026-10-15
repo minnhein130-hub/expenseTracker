@@ -25,8 +25,9 @@ Order before considering work done: `lint` -> `type-check`. No test runner is co
 ## Structure
 
 - `src/main.ts` — entry; mounts `App.vue` with vue-router.
-- `src/router/index.ts` — single route: `/` -> `TransactionView`.
-- `src/views/` — route-level components. `vue/multi-word-component-names` is disabled here only.
-- `src/features/<feature>/components/` — feature UI (currently `transactions`: `TransactionForm`, `TransactionList`). New feature code goes under `src/features/`, not `src/components/`.
+- `src/router/index.ts` — two routes: `/` -> `TransactionView`, `/dashboard` -> `DashboardView`.
+- `src/views/` — route-level components (`TransactionView`, `DashboardView`). `vue/multi-word-component-names` is disabled here only.
+- `src/features/<feature>/components/` — feature UI (currently `transactions`: `TransactionForm`, `TransactionFilters`, `TransactionList`). New feature code goes under `src/features/`, not `src/components/`.
+- `src/features/<feature>/{types,schemas,utils,composables}/` — feature types, Zod schemas, pure utilities, and composables.
 - `src/components/icons/` — shared SVG icon components (template leftovers).
-- `src/types/` — shared TS types (e.g. `transaction.ts`). There is no Pinia/Vuex; state is local.
+- There is no Pinia/Vuex; transaction state is a singleton ref exposed by `src/features/transactions/composables/useTransactions.ts`.

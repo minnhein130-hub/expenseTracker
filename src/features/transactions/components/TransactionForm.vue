@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useField, useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 
+import { categoriesForType } from '@/features/transactions/utils/categories'
 import { transactionSchema } from '@/features/transactions/schemas/transactionSchema'
 import type { Transaction, TransactionType } from '@/features/transactions/types/transaction.types'
 
 const props = withDefaults(
   defineProps<{
     transaction?: Transaction | null
+    variant?: 'page' | 'modal'
   }>(),
   {
     transaction: null,
+    variant: 'page',
   },
 )
 
@@ -45,6 +48,36 @@ const { value: noteValue, errorMessage: noteError } = useField<string>('note', u
   initialValue: '',
 })
 
+const isModal = computed(() => props.variant === 'modal')
+const categories = computed(() => {
+  const list = categoriesForType(typeValue.value)
+  const current = categoryValue.value
+  return current && !list.includes(current) ? [current, ...list] : list
+})
+
+const formClass = computed(() =>
+  isModal.value
+    ? 'space-y-5'
+    : 'mt-4 space-y-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm',
+)
+
+const fieldsLayoutClass = computed(() =>
+  isModal.value ? 'grid gap-5 sm:grid-cols-2' : 'space-y-5',
+)
+
+const categoryFieldClass = computed(() => (isModal.value ? 'order-last sm:col-span-2' : undefined))
+
+const buttonsClass = computed(() => (isModal.value ? 'flex justify-end gap-3' : 'flex gap-3'))
+
+const submitButtonClass = computed(() =>
+  isModal.value
+    ? 'rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
+    : 'flex-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2',
+)
+
+const fieldClass =
+  'mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500'
+
 watch(
   () => props.transaction,
   (transaction) => {
@@ -63,8 +96,20 @@ watch(
   { immediate: true },
 )
 
-const fieldClass =
-  'mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500'
+watch(typeValue, () => {
+  if (!isModal.value) {
+    return
+  }
+  if (!categoriesForType(typeValue.value).includes(categoryValue.value)) {
+    categoryValue.value = ''
+  }
+})
+
+function typeButtonClass(selected: boolean) {
+  return selected
+    ? 'rounded-md bg-white px-3 py-1.5 text-sm font-medium text-slate-900 shadow-sm'
+    : 'rounded-md px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700'
+}
 
 const onSubmit = handleSubmit((values) => {
   if (props.transaction) {
@@ -79,18 +124,30 @@ const onSubmit = handleSubmit((values) => {
 
 <template>
   <section>
-    <h2 class="text-xl font-semibold text-slate-900">
+    <h2 v-if="!isModal" class="text-xl font-semibold text-slate-900">
       {{ transaction ? 'Edit Transaction' : 'Add Transaction' }}
     </h2>
 
-    <form
-      class="mt-4 space-y-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
-      novalidate
-      @submit.prevent="onSubmit"
-    >
+    <form :class="formClass" novalidate @submit.prevent="onSubmit">
       <fieldset>
         <legend class="text-sm font-medium text-slate-700">Type</legend>
-        <div class="mt-2 flex gap-4">
+        <div v-if="isModal" class="mt-2 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
+          <button
+            type="button"
+            :class="typeButtonClass(typeValue === 'expense')"
+            @click="typeValue = 'expense'"
+          >
+            Expenses
+          </button>
+          <button
+            type="button"
+            :class="typeButtonClass(typeValue === 'income')"
+            @click="typeValue = 'income'"
+          >
+            Income
+          </button>
+        </div>
+        <div v-else class="mt-2 flex gap-4">
           <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
             <input
               v-model="typeValue"
@@ -113,41 +170,48 @@ const onSubmit = handleSubmit((values) => {
         <p v-if="typeError" class="mt-2 text-sm text-rose-600">{{ typeError }}</p>
       </fieldset>
 
-      <div>
-        <label for="amount" class="block text-sm font-medium text-slate-700">Amount</label>
-        <input
-          id="amount"
-          v-model.number="amountValue"
-          type="number"
-          min="0"
-          step="0.01"
-          placeholder="0.00"
-          required
-          :class="fieldClass"
-        />
-        <p v-if="amountError" class="mt-1 text-sm text-rose-600">{{ amountError }}</p>
+      <div :class="fieldsLayoutClass">
+        <div>
+          <label for="amount" class="block text-sm font-medium text-slate-700">Amount</label>
+          <input
+            id="amount"
+            v-model.number="amountValue"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="0.00"
+            required
+            :class="fieldClass"
+          />
+          <p v-if="amountError" class="mt-1 text-sm text-rose-600">{{ amountError }}</p>
+        </div>
+
+        <div :class="categoryFieldClass">
+          <label for="category" class="block text-sm font-medium text-slate-700">Category</label>
+          <select v-if="isModal" id="category" v-model="categoryValue" :class="fieldClass">
+            <option value="" disabled>Select category</option>
+            <option v-for="option in categories" :key="option" :value="option">{{ option }}</option>
+          </select>
+          <input
+            v-else
+            id="category"
+            v-model="categoryValue"
+            type="text"
+            placeholder="e.g. Groceries"
+            required
+            :class="fieldClass"
+          />
+          <p v-if="categoryError" class="mt-1 text-sm text-rose-600">{{ categoryError }}</p>
+        </div>
+
+        <div>
+          <label for="date" class="block text-sm font-medium text-slate-700">Date</label>
+          <input id="date" v-model="dateValue" type="date" required :class="fieldClass" />
+          <p v-if="dateError" class="mt-1 text-sm text-rose-600">{{ dateError }}</p>
+        </div>
       </div>
 
-      <div>
-        <label for="category" class="block text-sm font-medium text-slate-700">Category</label>
-        <input
-          id="category"
-          v-model="categoryValue"
-          type="text"
-          placeholder="e.g. Groceries"
-          required
-          :class="fieldClass"
-        />
-        <p v-if="categoryError" class="mt-1 text-sm text-rose-600">{{ categoryError }}</p>
-      </div>
-
-      <div>
-        <label for="date" class="block text-sm font-medium text-slate-700">Date</label>
-        <input id="date" v-model="dateValue" type="date" required :class="fieldClass" />
-        <p v-if="dateError" class="mt-1 text-sm text-rose-600">{{ dateError }}</p>
-      </div>
-
-      <div>
+      <div v-if="!isModal">
         <label for="note" class="block text-sm font-medium text-slate-700">Note</label>
         <textarea
           id="note"
@@ -159,15 +223,12 @@ const onSubmit = handleSubmit((values) => {
         <p v-if="noteError" class="mt-1 text-sm text-rose-600">{{ noteError }}</p>
       </div>
 
-      <div class="flex gap-3">
-        <button
-          type="submit"
-          class="flex-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-        >
-          {{ transaction ? 'Save Changes' : 'Add Transaction' }}
+      <div :class="buttonsClass">
+        <button type="submit" :class="submitButtonClass">
+          {{ isModal ? 'Save' : transaction ? 'Save Changes' : 'Add Transaction' }}
         </button>
         <button
-          v-if="transaction"
+          v-if="transaction || isModal"
           type="button"
           class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           @click="emit('cancel')"
