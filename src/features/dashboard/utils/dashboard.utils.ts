@@ -1,13 +1,13 @@
 import type { Transaction, TransactionType } from '@/features/transactions/types/transaction.types'
 
-export interface DashboardStats {
+export type DashboardStats = {
   totalIncome: number
   totalExpense: number
   balance: number
   categoriesUsed: number
 }
 
-export interface CategoryTotal {
+export type CategoryTotal = {
   category: string
   total: number
   share: number
@@ -24,6 +24,7 @@ export function computeDashboardStats(transactions: Transaction[]): DashboardSta
     } else {
       totalExpense += transaction.amount
     }
+
     categories.add(transaction.category)
   }
 
@@ -46,7 +47,9 @@ export function computeCategoryTotals(
     if (transaction.type !== type) {
       continue
     }
+
     totals.set(transaction.category, (totals.get(transaction.category) ?? 0) + transaction.amount)
+
     typeTotal += transaction.amount
   }
 

@@ -1,24 +1,19 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-
+import { ref } from 'vue'
 import { Plus } from 'lucide-vue-next'
 
 import AddTransactionModal from '@/features/transactions/components/AddTransactionModal.vue'
+
 import { useTransactions } from '@/features/transactions/composables/useTransactions'
-import {
-  computeCategoryTotals,
-  computeDashboardStats,
-  computeRecentTransactions,
-} from '@/features/transactions/utils/dashboardStats'
+import { useDashboard } from '@/features/dashboard/composables/useDashboard'
+
 import type { Transaction } from '@/features/transactions/types/transaction.types'
 
 const { transactions } = useTransactions()
-const isAddModalOpen = ref(false)
 
-const stats = computed(() => computeDashboardStats(transactions.value))
-const expenseByCategory = computed(() => computeCategoryTotals(transactions.value, 'expense'))
-const incomeByCategory = computed(() => computeCategoryTotals(transactions.value, 'income'))
-const recentTransactions = computed(() => computeRecentTransactions(transactions.value))
+const { stats, expenseByCategory, incomeByCategory, recentTransactions } = useDashboard()
+
+const isAddModalOpen = ref(false)
 
 function handleAdd(transaction: Transaction) {
   transactions.value.push(transaction)
