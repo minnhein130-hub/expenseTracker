@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import BaseCard from '@/components/BaseCard.vue'
+
 import type { Transaction } from '@/features/transactions/types/transaction.types'
 
 defineProps<{
@@ -7,7 +9,7 @@ defineProps<{
 </script>
 
 <template>
-  <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+  <BaseCard class="p-6">
     <div class="flex items-center justify-between">
       <h2 class="text-xl font-semibold text-slate-900">Recent Transactions</h2>
 
@@ -63,5 +65,5 @@ defineProps<{
     >
       No transactions yet.
     </p>
-  </div>
+  </BaseCard>
 </template>

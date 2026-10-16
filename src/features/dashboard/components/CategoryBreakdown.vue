@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import BaseCard from '@/components/BaseCard.vue'
+
 import type { CategoryTotal } from '@/features/dashboard/utils/dashboard.utils'
 
 defineProps<{
@@ -14,7 +16,7 @@ function percent(share: number): string {
 </script>
 
 <template>
-  <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+  <BaseCard class="p-6">
     <h2 class="text-xl font-semibold text-slate-900">
       {{ title }}
     </h2>
@@ -53,5 +55,5 @@ function percent(share: number): string {
     >
       {{ emptyMessage }}
     </p>
-  </div>
+  </BaseCard>
 </template>

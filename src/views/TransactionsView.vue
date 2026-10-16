@@ -3,14 +3,21 @@ import { computed, ref, watch } from 'vue'
 
 import { Plus } from 'lucide-vue-next'
 
+import BaseButton from '@/components/BaseButton.vue'
 import AddTransactionModal from '@/features/transactions/components/AddTransactionModal.vue'
 import TransactionFilters from '@/features/transactions/components/TransactionFilters.vue'
 import TransactionList from '@/features/transactions/components/TransactionList.vue'
+
+import { useDebounce } from '@/composables/useDebounce'
+import { useToast } from '@/features/notifications/composables/useToast'
 import { useTransactions } from '@/features/transactions/composables/useTransactions'
 import { filterTransactions } from '@/features/transactions/utils/filterTransactions'
+
 import type { Transaction, TypeFilter } from '@/features/transactions/types/transaction.types'
 
 const { transactions } = useTransactions()
+const toast = useToast()
+
 const editingTransaction = ref<Transaction | null>(null)
 const isAddModalOpen = ref(false)
 
@@ -23,8 +30,10 @@ const typeFilter = ref<TypeFilter>('all')
 const dateFrom = ref('')
 const dateTo = ref('')
 
+const appliedSearchQuery = useDebounce(searchQuery, 1000)
+
 const filters = computed(() => ({
-  query: searchQuery.value,
+  query: appliedSearchQuery.value,
   type: typeFilter.value,
   dateFrom: dateFrom.value,
   dateTo: dateTo.value,
@@ -42,6 +51,7 @@ const totalPages = computed(() =>
 
 const paginatedTransactions = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
+
   return filteredTransactions.value.slice(start, start + pageSize.value)
 })
 
@@ -49,31 +59,45 @@ watch(
   () => filteredTransactions.value.length,
   () => {
     const maxPage = Math.max(1, Math.ceil(filteredTransactions.value.length / pageSize.value))
+
     if (currentPage.value > maxPage) {
       currentPage.value = maxPage
     }
   },
 )
 
-watch([searchQuery, typeFilter, dateFrom, dateTo], () => {
+watch([typeFilter, dateFrom, dateTo], () => {
+  currentPage.value = 1
+  selectedIds.value = []
+})
+
+watch(appliedSearchQuery, () => {
   currentPage.value = 1
   selectedIds.value = []
 })
 
 watch(filteredTransactions, (list) => {
   const visibleIds = new Set(list.map((item) => item.id))
+
   selectedIds.value = selectedIds.value.filter((id) => visibleIds.has(id))
 })
 
 function handleClearFilters() {
   searchQuery.value = ''
+  appliedSearchQuery.value = ''
   typeFilter.value = 'all'
   dateFrom.value = ''
   dateTo.value = ''
 }
 
 function handleSubmit(transaction: Transaction) {
-  transactions.value.push(transaction)
+  try {
+    transactions.value.push(transaction)
+
+    toast.success('Transaction added successfully!')
+  } catch {
+    toast.error('Failed to add transaction.')
+  }
 }
 
 function handleEdit(transaction: Transaction) {
@@ -87,32 +111,54 @@ function closeModal() {
 }
 
 function handleUpdate(updatedTransaction: Transaction) {
-  const index = transactions.value.findIndex((item) => item.id === updatedTransaction.id)
+  try {
+    const index = transactions.value.findIndex((item) => item.id === updatedTransaction.id)
 
-  if (index !== -1) {
+    if (index === -1) {
+      toast.error('Failed to update transaction.')
+      return
+    }
+
     transactions.value[index] = updatedTransaction
-  }
+    editingTransaction.value = null
 
-  editingTransaction.value = null
+    toast.success('Transaction updated successfully!')
+  } catch {
+    toast.error('Failed to update transaction.')
+  }
 }
 
 function handleDelete(id: number) {
-  transactions.value = transactions.value.filter((item) => item.id !== id)
-  selectedIds.value = selectedIds.value.filter((selectedId) => selectedId !== id)
+  try {
+    transactions.value = transactions.value.filter((item) => item.id !== id)
 
-  if (editingTransaction.value?.id === id) {
-    editingTransaction.value = null
+    selectedIds.value = selectedIds.value.filter((selectedId) => selectedId !== id)
+
+    if (editingTransaction.value?.id === id) {
+      editingTransaction.value = null
+    }
+
+    toast.success('Transaction deleted successfully!')
+  } catch {
+    toast.error('Failed to delete transaction.')
   }
 }
 
 function handleBulkDelete(ids: number[]) {
-  const idsToDelete = new Set(ids)
+  try {
+    const idsToDelete = new Set(ids)
 
-  transactions.value = transactions.value.filter((item) => !idsToDelete.has(item.id))
-  selectedIds.value = selectedIds.value.filter((selectedId) => !idsToDelete.has(selectedId))
+    transactions.value = transactions.value.filter((item) => !idsToDelete.has(item.id))
 
-  if (editingTransaction.value && idsToDelete.has(editingTransaction.value.id)) {
-    editingTransaction.value = null
+    selectedIds.value = selectedIds.value.filter((selectedId) => !idsToDelete.has(selectedId))
+
+    if (editingTransaction.value && idsToDelete.has(editingTransaction.value.id)) {
+      editingTransaction.value = null
+    }
+
+    toast.success('Transactions deleted successfully!')
+  } catch {
+    toast.error('Failed to delete transactions.')
   }
 }
 
@@ -148,28 +194,35 @@ function handlePageSizeChange(size: number) {
 
 <template>
   <div>
-    <header class="border-b border-slate-200 bg-white">
+    <!-- Page Header -->
+    <header class="sticky top-14 z-20 border-b border-slate-200 bg-white lg:top-0">
       <div
-        class="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-4 py-5 lg:px-8"
+        class="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-6 lg:px-10"
       >
         <div>
           <h1 class="text-xl font-semibold text-slate-900">Transactions</h1>
+
           <p class="mt-0.5 text-sm text-slate-500">
-            {{ filteredTransactions.length }} of {{ transactions.length }} entries
+            {{ filteredTransactions.length }} of
+            {{ transactions.length }}
+            entries
           </p>
         </div>
-        <button
-          type="button"
-          class="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+
+        <BaseButton
+          variant="primary"
+          class="flex items-center gap-1.5 transition-colors"
           @click="isAddModalOpen = true"
         >
           <Plus class="h-4 w-4" :stroke-width="2" />
           Add Transaction
-        </button>
+        </BaseButton>
       </div>
     </header>
 
-    <section class="mx-auto w-full max-w-5xl px-4 py-8 lg:px-8">
+    <!-- Main Content -->
+    <section class="mx-auto w-full max-w-[1600px] space-y-6 px-5 py-8 sm:px-6 lg:px-10">
+      <!-- Search and Filters -->
       <TransactionFilters
         v-model:query="searchQuery"
         v-model:type="typeFilter"
@@ -178,27 +231,27 @@ function handlePageSizeChange(size: number) {
         @clear="handleClearFilters"
       />
 
-      <div class="mt-6">
-        <TransactionList
-          :transactions="paginatedTransactions"
-          :total-count="filteredTransactions.length"
-          :is-filter-empty="isFilterEmpty"
-          :selected-ids="selectedIds"
-          :current-page="currentPage"
-          :page-size="pageSize"
-          :total-pages="totalPages"
-          @edit="handleEdit"
-          @delete="handleDelete"
-          @bulk-delete="handleBulkDelete"
-          @select-toggle="handleToggleSelect"
-          @select-all-toggle="handleToggleSelectAll"
-          @clear-selection="handleClearSelection"
-          @page-change="handlePageChange"
-          @page-size-change="handlePageSizeChange"
-        />
-      </div>
+      <!-- Transaction List -->
+      <TransactionList
+        :transactions="paginatedTransactions"
+        :total-count="filteredTransactions.length"
+        :is-filter-empty="isFilterEmpty"
+        :selected-ids="selectedIds"
+        :current-page="currentPage"
+        :page-size="pageSize"
+        :total-pages="totalPages"
+        @edit="handleEdit"
+        @delete="handleDelete"
+        @bulk-delete="handleBulkDelete"
+        @select-toggle="handleToggleSelect"
+        @select-all-toggle="handleToggleSelectAll"
+        @clear-selection="handleClearSelection"
+        @page-change="handlePageChange"
+        @page-size-change="handlePageSizeChange"
+      />
     </section>
 
+    <!-- Add / Edit Transaction Modal -->
     <AddTransactionModal
       :open="isAddModalOpen"
       :transaction="editingTransaction"

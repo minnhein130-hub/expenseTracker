@@ -3,6 +3,10 @@ import { computed, ref } from 'vue'
 
 import { Pencil, Trash2 } from 'lucide-vue-next'
 
+import BaseButton from '@/components/BaseButton.vue'
+import BaseCard from '@/components/BaseCard.vue'
+import BaseModal from '@/components/BaseModal.vue'
+
 import type { Transaction } from '@/features/transactions/types/transaction.types'
 
 const props = defineProps<{
@@ -105,7 +109,7 @@ function onPageSizeChange(event: Event) {
       {{ emptyMessage }}
     </p>
 
-    <div v-else class="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <BaseCard v-else class="mt-4 overflow-hidden">
       <div
         class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
       >
@@ -121,24 +125,24 @@ function onPageSizeChange(event: Event) {
             Select all ({{ totalCount }})
           </label>
           <span class="text-sm text-slate-600">{{ selectedIds.length }} selected</span>
-          <button
+          <BaseButton
             v-if="selectedIds.length > 0"
-            type="button"
-            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            variant="secondary"
+            size="sm"
             @click="emit('clear-selection')"
           >
             Clear
-          </button>
+          </BaseButton>
         </div>
 
-        <button
-          type="button"
-          class="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        <BaseButton
+          variant="danger"
+          size="sm"
           :disabled="selectedIds.length === 0"
           @click="openBulkDeleteModal"
         >
           Delete selected
-        </button>
+        </BaseButton>
       </div>
 
       <div class="overflow-x-auto">
@@ -246,36 +250,33 @@ function onPageSizeChange(event: Event) {
         </div>
 
         <div class="flex items-center gap-2">
-          <button
-            type="button"
-            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+          <BaseButton
+            variant="secondary"
+            size="sm"
             :disabled="currentPage <= 1"
             @click="emit('page-change', currentPage - 1)"
           >
             Previous
-          </button>
+          </BaseButton>
           <span class="text-sm tabular-nums text-slate-600">
             {{ currentPage }} / {{ totalPages }}
           </span>
-          <button
-            type="button"
-            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+          <BaseButton
+            variant="secondary"
+            size="sm"
             :disabled="currentPage >= totalPages"
             @click="emit('page-change', currentPage + 1)"
           >
             Next
-          </button>
+          </BaseButton>
         </div>
       </div>
-    </div>
+    </BaseCard>
 
-    <div
-      v-if="pendingDelete"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="delete-modal-title"
-      @click.self="cancelDelete"
+    <BaseModal
+      :open="pendingDelete !== null"
+      labelled-by="delete-modal-title"
+      @close="cancelDelete"
     >
       <div
         class="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl"
@@ -290,22 +291,10 @@ function onPageSizeChange(event: Event) {
         </p>
 
         <div class="mt-6 flex justify-end gap-2">
-          <button
-            type="button"
-            class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            @click="cancelDelete"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2"
-            @click="confirmDelete"
-          >
-            Delete
-          </button>
+          <BaseButton variant="secondary" @click="cancelDelete">Cancel</BaseButton>
+          <BaseButton variant="danger" @click="confirmDelete">Delete</BaseButton>
         </div>
       </div>
-    </div>
+    </BaseModal>
   </section>
 </template>

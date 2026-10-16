@@ -3,6 +3,9 @@ import { computed, watch } from 'vue'
 import { useField, useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 
+import BaseButton from '@/components/BaseButton.vue'
+import BaseInput from '@/components/BaseInput.vue'
+
 import { categoriesForType } from '@/features/transactions/utils/categories'
 import { transactionSchema } from '@/features/transactions/schemas/transactionSchema'
 import type { Transaction, TransactionType } from '@/features/transactions/types/transaction.types'
@@ -24,6 +27,16 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
+function getTodayLocalDate(): string {
+  const now = new Date()
+
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
 const { handleSubmit, resetForm, setValues } = useForm({
   validationSchema: toTypedSchema(transactionSchema),
 })
@@ -42,7 +55,7 @@ const { value: categoryValue, errorMessage: categoryError } = useField<string>(
   { initialValue: '' },
 )
 const { value: dateValue, errorMessage: dateError } = useField<string>('date', undefined, {
-  initialValue: '',
+  initialValue: getTodayLocalDate(),
 })
 const { value: noteValue, errorMessage: noteError } = useField<string>('note', undefined, {
   initialValue: '',
@@ -69,11 +82,7 @@ const categoryFieldClass = computed(() => (isModal.value ? 'order-last sm:col-sp
 
 const buttonsClass = computed(() => (isModal.value ? 'flex justify-end gap-3' : 'flex gap-3'))
 
-const submitButtonClass = computed(() =>
-  isModal.value
-    ? 'rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
-    : 'flex-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2',
-)
+const submitButtonClass = computed(() => (isModal.value ? undefined : 'flex-1'))
 
 const fieldClass =
   'mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500'
@@ -192,26 +201,26 @@ const onSubmit = handleSubmit((values) => {
             <option value="" disabled>Select category</option>
             <option v-for="option in categories" :key="option" :value="option">{{ option }}</option>
           </select>
-          <input
+          <BaseInput
             v-else
             id="category"
             v-model="categoryValue"
             type="text"
             placeholder="e.g. Groceries"
             required
-            :class="fieldClass"
+            class="mt-1"
           />
           <p v-if="categoryError" class="mt-1 text-sm text-rose-600">{{ categoryError }}</p>
         </div>
 
         <div>
           <label for="date" class="block text-sm font-medium text-slate-700">Date</label>
-          <input id="date" v-model="dateValue" type="date" required :class="fieldClass" />
+          <BaseInput id="date" v-model="dateValue" type="date" required class="mt-1" />
           <p v-if="dateError" class="mt-1 text-sm text-rose-600">{{ dateError }}</p>
         </div>
       </div>
 
-      <div v-if="!isModal">
+      <div>
         <label for="note" class="block text-sm font-medium text-slate-700">Note</label>
         <textarea
           id="note"
@@ -220,21 +229,21 @@ const onSubmit = handleSubmit((values) => {
           placeholder="Optional"
           :class="fieldClass"
         ></textarea>
-        <p v-if="noteError" class="mt-1 text-sm text-rose-600">{{ noteError }}</p>
+        <p v-if="noteError" class="mt-1 mb-6 text-sm text-rose-600">{{ noteError }}</p>
       </div>
 
       <div :class="buttonsClass">
-        <button type="submit" :class="submitButtonClass">
-          {{ isModal ? 'Save' : transaction ? 'Save Changes' : 'Add Transaction' }}
-        </button>
-        <button
+        <BaseButton
           v-if="transaction || isModal"
-          type="button"
-          class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          variant="secondary"
           @click="emit('cancel')"
         >
           Cancel
-        </button>
+        </BaseButton>
+
+        <BaseButton type="submit" :class="submitButtonClass">
+          {{ isModal ? 'Save' : transaction ? 'Save Changes' : 'Add Transaction' }}
+        </BaseButton>
       </div>
     </form>
   </section>

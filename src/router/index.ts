@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import DashboardView from '../views/DashboardView.vue'
-import TransactionView from '../views/TransactionView.vue'
+import TransactionsView from '../views/TransactionsView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -9,7 +9,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'transaction',
-      component: TransactionView,
+      component: TransactionsView,
     },
     {
       path: '/dashboard',
